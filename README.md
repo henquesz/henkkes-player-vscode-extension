@@ -1,19 +1,16 @@
-# Henkkes Player — VS Code Extension
+# Henkkes Player
 
-Site de download do **YT Mini Player**, uma extensão para o VS Code que toca YouTube direto no Explorer (seção "Tocando agora").
+Extensão pro VS Code que mostra o que está tocando no YouTube (capa, título, progresso) no Explorer, com play/pause/próximo pela status bar. Só Windows por enquanto.
 
-## Instalação
+## Instalar
 
-- **Windows:** baixe e rode `downloads/instalar-yt-mini-player.cmd`
-- **Manual:** baixe `downloads/yt-mini-player.vsix` e rode:
-  ```
-  code --install-extension yt-mini-player.vsix
-  ```
+- Rode `downloads/instalar-henkkes-player.cmd`, ou
+- `code --install-extension downloads/henkkes-player.vsix`
 
-Depois, recarregue o VS Code (`Ctrl+Shift+P` → "Reload Window").
+Depois: `Ctrl+Shift+P` → "Reload Window".
 
 ## Estrutura
 
-- `index.html` — página do site
-- `downloads/` — instalador e pacote `.vsix`
-- `vercel.json` — configuração de deploy na Vercel
+- `index.html` — site
+- `downloads/` — instalador e `.vsix`
+- `vercel.json` — headers de download na Vercel

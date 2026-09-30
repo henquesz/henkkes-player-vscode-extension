@@ -2,509 +2,215 @@
 <html lang="pt-BR">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>YT Mini Player — o que toca no YouTube, dentro do VS Code</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Henkkes Player — YouTube dentro do VS Code</title>
 <meta name="description" content="Extensão pro VS Code que mostra e controla o que está tocando no YouTube, sem sair do editor.">
-<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎧</text></svg>">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><rect width='16' height='16' rx='3' fill='%23e8483b'/><path d='M6 4.5v7l5.5-3.5z' fill='%23fff'/></svg>">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,600;12..96,800&family=Fraunces:ital,opsz,wght@1,9..144,500;1,9..144,700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
   :root {
-    --bg: #1b1b20;
-    --bg-2: #232329;
-    --line: rgba(255,255,255,.07);
-    --text: #f3f1f6;
-    --muted: #9a98a6;
-    --pink: #ff3d9a;
-    --orange: #ff8a3d;
-    --yellow: #ffd23f;
-    --teal: #2ee6d6;
-    --violet: #8b5cff;
-    --red: #ff4a4a;
-    --display: "Bricolage Grotesque", "Segoe UI", system-ui, sans-serif;
-    --serif: "Fraunces", Georgia, "Times New Roman", serif;
-    --pad: clamp(20px, 6vw, 120px);
+    --bg: #141414;
+    --panel: #1c1c1c;
+    --line: #2c2c2c;
+    --text: #e6e6e6;
+    --muted: #8f8f8f;
+    --accent: #e8483b;
+    --sans: "IBM Plex Sans", "Segoe UI", system-ui, sans-serif;
+    --mono: "IBM Plex Mono", Consolas, monospace;
   }
   * { box-sizing: border-box; margin: 0; }
-  html { scroll-behavior: smooth; background: var(--bg); }
-  body {
-    font-family: var(--display); color: var(--text); background: var(--bg);
-    overflow-x: hidden; -webkit-font-smoothing: antialiased;
-    padding-bottom: env(safe-area-inset-bottom, 0px);
-  }
-  a { color: inherit; text-decoration: none; }
+  html { background: var(--bg); }
+  body { font: 16px/1.6 var(--sans); color: var(--text); background: var(--bg); -webkit-font-smoothing: antialiased; }
+  a { color: inherit; }
+  code { font-family: var(--mono); font-size: .88em; background: #242424; border: 1px solid var(--line); padding: 1px 5px; border-radius: 3px; }
 
-  /* ---------- Luzes ---------- */
-  .lights { position: fixed; inset: 0; z-index: 0; pointer-events: none; overflow: hidden; }
-  .light {
-    position: absolute; border-radius: 50%; filter: blur(90px); opacity: .55;
-    mix-blend-mode: screen; will-change: transform;
-  }
-  .l1 { width: 46vw; height: 46vw; background: var(--pink);   top: -18vw; left: -12vw; animation: drift1 22s ease-in-out infinite alternate; }
-  .l2 { width: 38vw; height: 38vw; background: var(--teal);   top: 30vh;  right: -8vw; opacity: .35; animation: drift2 26s ease-in-out infinite alternate; }
-  .l3 { width: 30vw; height: 30vw; background: var(--violet); bottom: -12vw; right: 18vw; animation: drift3 30s ease-in-out infinite alternate; }
-  .l4 { width: 26vw; height: 26vw; background: var(--orange); bottom: 6vh; left: 14vw; opacity: .3; animation: drift2 24s ease-in-out infinite alternate-reverse; }
-  .l5 { width: 18vw; height: 18vw; background: var(--yellow); top: 12vh; left: 42vw; opacity: .18; animation: drift1 19s ease-in-out infinite alternate-reverse; }
-  @keyframes drift1 { to { transform: translate(14vw, 10vh) scale(1.15); } }
-  @keyframes drift2 { to { transform: translate(-12vw, -8vh) scale(.9); } }
-  @keyframes drift3 { to { transform: translate(-16vw, -14vh) scale(1.2); } }
+  .wrap { max-width: 980px; margin: 0 auto; padding: 0 20px; }
 
-  .grid {
-    position: fixed; inset: 0; z-index: 0; pointer-events: none;
-    background-image:
-      linear-gradient(var(--line) 1px, transparent 1px),
-      linear-gradient(90deg, var(--line) 1px, transparent 1px);
-    background-size: 64px 64px;
-    mask-image: radial-gradient(ellipse at 40% 30%, #000 20%, transparent 75%);
-  }
-  .grain {
-    position: fixed; inset: 0; z-index: 1; pointer-events: none; opacity: .06;
-    background-image: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>");
-  }
-  .cursor {
-    position: fixed; z-index: 60; width: 34px; height: 34px; border-radius: 50%;
-    border: 1px solid rgba(255,255,255,.35); pointer-events: none;
-    transform: translate(-50%, -50%); transition: width .2s, height .2s, background .2s;
-    display: none;
-  }
-  .cursor::after {
-    content: ""; position: absolute; left: 50%; top: 50%; width: 6px; height: 6px;
-    border-radius: 50%; background: var(--pink); transform: translate(-50%, -50%);
-  }
-  .cursor.hover { width: 56px; height: 56px; background: rgba(255,61,154,.12); }
-  @media (hover: hover) and (pointer: fine) { .cursor { display: block; } }
-
-  main, header, footer { position: relative; z-index: 2; }
-
-  /* ---------- Nav ---------- */
-  header {
-    display: flex; align-items: center; justify-content: space-between; gap: 20px;
-    padding: calc(22px + env(safe-area-inset-top, 0px)) var(--pad) 22px;
-  }
-  .logo { font-weight: 800; font-size: 22px; letter-spacing: -.03em; display: flex; align-items: center; gap: 6px; }
-  .logo .spark { color: var(--teal); animation: spin 8s linear infinite; display: inline-block; }
-  @keyframes spin { to { transform: rotate(360deg); } }
-  nav { display: flex; align-items: center; gap: 30px; }
-  nav .links { display: flex; gap: 28px; font-weight: 600; font-size: 14px; }
-  nav .links a { opacity: .8; transition: opacity .2s; }
-  nav .links a:hover { opacity: 1; }
+  header { border-bottom: 1px solid var(--line); }
+  header .wrap { display: flex; align-items: center; justify-content: space-between; height: 60px; }
+  .logo { font-weight: 600; text-decoration: none; display: flex; align-items: center; gap: 10px; }
+  .logo i { width: 18px; height: 18px; border-radius: 3px; background: var(--accent); display: grid; place-items: center; }
+  .logo i::after { content: ""; border-left: 6px solid #fff; border-block: 4px solid transparent; margin-left: 2px; }
+  header nav { display: flex; gap: 24px; font-size: 14px; color: var(--muted); }
+  header nav a { text-decoration: none; }
+  header nav a:hover { color: var(--text); }
 
   .btn {
-    display: inline-flex; align-items: center; gap: 10px; border: 0; cursor: pointer;
-    font: 800 15px/1 var(--display); color: #fff; padding: 14px 24px; border-radius: 999px;
-    background: linear-gradient(135deg, var(--pink), #c93dff);
-    box-shadow: 0 0 0 0 rgba(255,61,154,.5), 0 10px 30px -10px rgba(255,61,154,.8);
-    transition: transform .2s, box-shadow .3s;
+    display: inline-block; background: var(--accent); color: #fff; text-decoration: none;
+    font-weight: 600; font-size: 15px; padding: 11px 20px; border-radius: 4px;
   }
-  .btn:hover { transform: translateY(-2px); box-shadow: 0 0 0 6px rgba(255,61,154,.15), 0 16px 40px -10px rgba(255,61,154,.9); }
-  .btn:focus-visible, a:focus-visible, summary:focus-visible { outline: 2px solid var(--teal); outline-offset: 3px; }
-  .btn.sm { padding: 11px 18px; font-size: 13px; }
-  .btn svg { width: 18px; height: 18px; }
+  .btn:hover { background: #d63d31; }
+  a:focus-visible, summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 
-  /* ---------- Hero ---------- */
-  .hero { position: relative; padding: 40px var(--pad) 60px; min-height: calc(100vh - 90px); display: flex; flex-direction: column; }
-  .pills { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 36px; }
-  .pill {
-    font-size: 13px; font-weight: 600; padding: 9px 16px; border-radius: 999px;
-    background: rgba(255,255,255,.05); border: 1px solid rgba(255,255,255,.12);
-    backdrop-filter: blur(8px);
-  }
-  .pill.live { color: var(--pink); border-color: rgba(255,61,154,.45); display: flex; align-items: center; gap: 8px; }
-  .pill.live i { width: 8px; height: 8px; border-radius: 50%; background: var(--pink); animation: pulse 1.6s ease-in-out infinite; }
-  @keyframes pulse { 50% { box-shadow: 0 0 0 6px rgba(255,61,154,0); opacity: .6; } 0% { box-shadow: 0 0 0 0 rgba(255,61,154,.6); } }
+  .hero { display: grid; grid-template-columns: 1.1fr 1fr; gap: 56px; align-items: center; padding: 72px 0 80px; }
+  h1 { font-size: 44px; line-height: 1.15; font-weight: 600; letter-spacing: -.02em; }
+  .hero p { color: var(--muted); font-size: 18px; margin-top: 18px; max-width: 46ch; }
+  .cta { margin-top: 30px; display: flex; flex-wrap: wrap; align-items: center; gap: 16px; }
+  .cta small { color: var(--muted); font-size: 13px; }
+  .cta small a { color: var(--text); }
 
-  h1 { font-weight: 800; line-height: .9; letter-spacing: -.045em; position: relative; z-index: 3; }
-  h1 span { display: block; }
-  .h-solid { font-size: clamp(60px, 9.5vw, 176px); }
-  .h-serif {
-    font-family: var(--serif); font-style: italic; font-weight: 700; letter-spacing: -.02em;
-    font-size: clamp(64px, 10vw, 186px); line-height: 1.02; padding: .02em 0 .08em .03em;
-    background: linear-gradient(90deg, var(--orange), var(--yellow) 40%, var(--orange) 65%, var(--pink));
-    background-size: 200% 100%;
-    -webkit-background-clip: text; background-clip: text; color: transparent;
-    animation: shimmer 6s ease-in-out infinite alternate;
-  }
-  @keyframes shimmer { to { background-position: 100% 0; } }
-  .h-outline {
-    font-size: clamp(52px, 8.6vw, 160px); color: transparent;
-    -webkit-text-stroke: 1.5px var(--teal); text-shadow: 0 0 40px rgba(46,230,214,.25);
-  }
-  .reveal { opacity: 0; transform: translateY(40px); animation: rise .9s cubic-bezier(.2,.8,.2,1) forwards; }
-  .d1 { animation-delay: .1s } .d2 { animation-delay: .25s } .d3 { animation-delay: .4s } .d4 { animation-delay: .6s } .d5 { animation-delay: .8s }
-  @keyframes rise { to { opacity: 1; transform: none; } }
+  /* Prévia do painel no VS Code */
+  .mock { background: var(--panel); border: 1px solid var(--line); border-radius: 6px; font-size: 12px; overflow: hidden; }
+  .mock-title { font-family: var(--mono); font-size: 11px; color: var(--muted); padding: 8px 12px; border-bottom: 1px solid var(--line); }
+  .mock-body { padding: 10px 12px 14px; }
+  .tree { font-family: var(--mono); color: var(--muted); line-height: 1.9; margin-bottom: 10px; }
+  .tree div { padding-left: calc(var(--i, 0) * 14px); }
+  .tree .on { color: var(--text); background: #262626; }
+  .sec { font-size: 11px; font-weight: 600; letter-spacing: .04em; color: #bdbdbd; padding: 8px 0; border-top: 1px solid var(--line); }
+  .thumb { aspect-ratio: 16 / 9; border-radius: 3px; background: #2a2a2a url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 160 90'><rect width='160' height='90' fill='%23303a45'/><circle cx='112' cy='30' r='12' fill='%23d9b36c'/><path d='M0 90V62l30-18 26 14 34-26 36 22 34-12v48z' fill='%23222a33'/></svg>") center/cover; }
+  .track { margin-top: 10px; font-weight: 600; font-size: 13px; }
+  .artist { color: var(--muted); }
+  .bar { height: 3px; background: #333; margin-top: 10px; }
+  .bar i { display: block; height: 100%; width: 40%; background: var(--text); }
+  .times { display: flex; justify-content: space-between; color: var(--muted); font-family: var(--mono); font-size: 10px; margin-top: 4px; }
+  .ctrls { display: flex; justify-content: center; gap: 22px; margin-top: 6px; }
+  .ctrls svg { width: 16px; height: 16px; fill: var(--text); }
+  .statusbar { background: #007acc; color: #fff; font-size: 11px; padding: 3px 10px; font-family: var(--mono); }
 
-  .facts { display: flex; flex-wrap: wrap; gap: 20px 60px; margin-top: auto; padding-top: 50px; align-items: flex-end; }
-  .fact small { display: block; font-size: 11px; font-weight: 600; letter-spacing: .2em; color: var(--muted); margin-bottom: 8px; }
-  .fact b { font-size: clamp(18px, 1.6vw, 22px); font-weight: 800; letter-spacing: -.02em; }
-  .fact b em { font-style: normal; color: var(--teal); padding: 0 4px; }
-  .hero-cta { display: flex; flex-direction: column; gap: 10px; margin-left: auto; align-items: flex-start; }
-  .hero-cta .btn { font-size: 17px; padding: 18px 30px; }
-  .note { font-size: 12px; color: var(--muted); }
+  section { padding: 64px 0; border-top: 1px solid var(--line); }
+  h2 { font-size: 26px; font-weight: 600; letter-spacing: -.01em; margin-bottom: 28px; }
 
-  /* ---------- Mock do VS Code ---------- */
-  .stage {
-    position: absolute; right: var(--pad); top: 96px; width: min(360px, 30vw); z-index: 2;
-    perspective: 1200px;
-  }
-  .mock {
-    background: #1f1f24; border: 1px solid rgba(255,255,255,.1); border-radius: 14px; overflow: hidden;
-    box-shadow: 0 40px 80px -20px rgba(0,0,0,.7), 0 0 0 1px rgba(255,255,255,.03), 0 0 80px -20px rgba(139,92,255,.5);
-    transform: rotateY(-10deg) rotateX(4deg); transition: transform .5s cubic-bezier(.2,.8,.2,1);
-    animation: floaty 7s ease-in-out infinite;
-  }
-  @keyframes floaty { 50% { translate: 0 -12px; } }
-  .mock-bar { display: flex; gap: 6px; padding: 12px 14px; background: #18181c; border-bottom: 1px solid rgba(255,255,255,.06); }
-  .mock-bar i { width: 10px; height: 10px; border-radius: 50%; background: #3a3a42; }
-  .mock-bar i:nth-child(1) { background: #ff5f57 } .mock-bar i:nth-child(2) { background: #febc2e } .mock-bar i:nth-child(3) { background: #28c840 }
-  .mock-body { padding: 12px 14px 16px; font-size: 12px; }
-  .tree { color: #8d8b98; line-height: 1.9; margin-bottom: 12px; }
-  .tree div { padding-left: calc(var(--i, 0) * 12px); white-space: nowrap; }
-  .tree .on { color: #e8e6ef; background: rgba(255,255,255,.05); border-radius: 4px; margin: 0 -6px; padding-right: 6px; padding-left: calc(var(--i, 0) * 12px + 6px); }
-  .section-head { font-size: 11px; font-weight: 800; color: #c8c6d2; padding: 8px 0; border-top: 1px solid rgba(255,255,255,.07); display: flex; align-items: center; gap: 6px; }
-  .art {
-    aspect-ratio: 16 / 9; border-radius: 8px; overflow: hidden; position: relative;
-    background: linear-gradient(180deg, #2a1a4a 0%, #7a2f7a 45%, #ff7a59 75%, #ffd08a 100%);
-  }
-  .art .sun { position: absolute; width: 38%; aspect-ratio: 1; left: 31%; bottom: 18%; border-radius: 50%;
-    background: linear-gradient(#ffe37a, #ff5fa2);
-    -webkit-mask: repeating-linear-gradient(180deg, #000 0 9px, transparent 9px 12px);
-            mask: repeating-linear-gradient(180deg, #000 0 9px, transparent 9px 12px); }
-  .art .hills { position: absolute; inset: auto 0 0 0; height: 30%; background: #1b1030;
-    clip-path: polygon(0 60%, 18% 20%, 34% 55%, 52% 10%, 70% 50%, 86% 25%, 100% 45%, 100% 100%, 0 100%); }
-  .eq { position: absolute; right: 10px; top: 10px; display: flex; gap: 3px; align-items: flex-end; height: 18px; }
-  .eq i { width: 3px; background: #fff; border-radius: 2px; animation: eq 1s ease-in-out infinite; }
-  .eq i:nth-child(2) { animation-delay: -.3s } .eq i:nth-child(3) { animation-delay: -.6s } .eq i:nth-child(4) { animation-delay: -.15s }
-  @keyframes eq { 0%,100% { height: 30% } 50% { height: 100% } }
-  .track { margin-top: 10px; font-weight: 800; font-size: 13px; line-height: 1.3; color: #f1eff6; }
-  .artist { color: #8d8b98; margin-top: 2px; }
-  .bar { height: 3px; border-radius: 2px; background: rgba(255,255,255,.12); margin-top: 12px; overflow: hidden; }
-  .bar i { display: block; height: 100%; width: 38%; background: linear-gradient(90deg, var(--pink), var(--orange)); animation: prog 40s linear infinite; }
-  @keyframes prog { from { width: 12% } to { width: 96% } }
-  .times { display: flex; justify-content: space-between; color: #8d8b98; font-size: 10px; margin-top: 4px; font-variant-numeric: tabular-nums; }
-  .ctrls { display: flex; justify-content: center; align-items: center; gap: 14px; margin-top: 6px; }
-  .ctrls span { width: 28px; height: 28px; display: grid; place-items: center; }
-  .ctrls .play { width: 36px; height: 36px; border-radius: 50%; background: var(--pink); }
-  .ctrls svg { width: 14px; height: 14px; fill: #fff; }
-  .status { display: flex; align-items: center; gap: 8px; background: #6b3dff; color: #fff; font-size: 11px; padding: 5px 12px; }
-  .status svg { width: 11px; height: 11px; fill: #fff; }
+  .list { display: grid; grid-template-columns: repeat(3, 1fr); gap: 32px; }
+  .list h3 { font-size: 16px; font-weight: 600; margin-bottom: 6px; }
+  .list p { color: var(--muted); font-size: 15px; }
 
-  .bubble {
-    position: absolute; z-index: 1; border-radius: 50%; display: grid; place-items: center;
-    background: radial-gradient(circle at 30% 30%, rgba(255,255,255,.25), rgba(255,255,255,.04) 60%);
-    border: 1px solid rgba(255,255,255,.18); backdrop-filter: blur(6px);
-    box-shadow: 0 20px 40px -10px rgba(0,0,0,.6);
-    animation: bob var(--t, 6s) ease-in-out infinite;
-    font-size: var(--fs, 28px);
-  }
-  @keyframes bob { 50% { transform: translateY(-18px) rotate(8deg); } }
-  .b1 { width: 84px; height: 84px; top: -30px; left: -60px; --t: 7s; box-shadow: 0 0 40px -6px var(--pink); }
-  .b2 { width: 64px; height: 64px; bottom: 40px; right: -34px; --t: 5.5s; --fs: 24px; box-shadow: 0 0 40px -6px var(--teal); }
-  .b3 { width: 52px; height: 52px; bottom: -40px; left: 10px; --t: 8s; --fs: 20px; box-shadow: 0 0 40px -6px var(--yellow); }
+  ol.steps { padding-left: 22px; max-width: 64ch; }
+  ol.steps li { margin-bottom: 14px; padding-left: 6px; }
+  ol.steps li::marker { color: var(--muted); font-family: var(--mono); }
+  ol.steps span { color: var(--muted); }
 
-  .whisper { position: absolute; font-family: var(--serif); font-style: italic; color: rgba(255,255,255,.07); font-size: 44px; pointer-events: none; }
+  details { border-bottom: 1px solid var(--line); max-width: 720px; }
+  details:first-of-type { border-top: 1px solid var(--line); }
+  summary { cursor: pointer; padding: 16px 0; font-weight: 500; }
+  details p { color: var(--muted); padding-bottom: 18px; max-width: 64ch; }
 
-  /* ---------- Seções ---------- */
-  section { padding: 110px var(--pad); position: relative; }
-  .sec-title { font-size: clamp(38px, 5.5vw, 88px); font-weight: 800; letter-spacing: -.04em; line-height: .95; max-width: 14ch; }
-  .sec-title em { font-family: var(--serif); font-weight: 500; letter-spacing: -.02em; color: var(--yellow); }
-  .sec-lead { color: var(--muted); font-size: 18px; line-height: 1.55; max-width: 52ch; margin-top: 20px; }
+  footer { border-top: 1px solid var(--line); color: var(--muted); font-size: 13px; }
+  footer .wrap { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 8px; padding-block: 24px; }
 
-  .features { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0; margin-top: 64px; border-top: 1px solid rgba(255,255,255,.12); }
-  .feature { padding: 34px 32px 10px 0; }
-  .feature + .feature { padding-left: 32px; border-left: 1px solid rgba(255,255,255,.12); }
-  .feature .ic { width: 46px; height: 46px; border-radius: 12px; display: grid; place-items: center; margin-bottom: 22px; }
-  .feature .ic svg { width: 22px; height: 22px; }
-  .feature h3 { font-size: 22px; letter-spacing: -.02em; margin-bottom: 10px; }
-  .feature p { color: var(--muted); line-height: 1.6; font-size: 15.5px; }
-
-  .steps { display: grid; grid-template-columns: repeat(3, 1fr); gap: 28px; margin-top: 64px; counter-reset: s; }
-  .step { position: relative; padding-top: 18px; }
-  .step::before {
-    counter-increment: s; content: counter(s);
-    display: block; font-size: 120px; font-weight: 800; line-height: 1; letter-spacing: -.06em;
-    color: transparent; -webkit-text-stroke: 1.5px var(--c); margin-bottom: 10px;
-  }
-  .step h3 { font-size: 22px; letter-spacing: -.02em; margin-bottom: 8px; }
-  .step p { color: var(--muted); line-height: 1.6; }
-  .step code { font-family: ui-monospace, Consolas, monospace; font-size: 13px; background: rgba(255,255,255,.07); padding: 2px 6px; border-radius: 5px; color: #e8e6ef; }
-
-  .faq { margin-top: 50px; max-width: 820px; }
-  details { border-bottom: 1px solid rgba(255,255,255,.12); }
-  summary {
-    list-style: none; cursor: pointer; padding: 24px 0; font-size: 20px; font-weight: 600;
-    display: flex; justify-content: space-between; align-items: center; gap: 20px;
-  }
-  summary::-webkit-details-marker { display: none; }
-  summary::after { content: "+"; font-size: 28px; font-weight: 400; color: var(--pink); transition: transform .3s; }
-  details[open] summary::after { transform: rotate(45deg); }
-  details p { color: var(--muted); line-height: 1.65; padding: 0 0 24px; max-width: 64ch; }
-  details a { color: var(--teal); text-decoration: underline; text-underline-offset: 3px; }
-
-  .final { text-align: center; padding-top: 140px; padding-bottom: 140px; }
-  .final .big { font-size: clamp(48px, 9vw, 160px); font-weight: 800; letter-spacing: -.05em; line-height: .9; }
-  .final .big span { display: block; font-family: var(--serif); font-style: italic; font-weight: 700; letter-spacing: -.02em;
-    background: linear-gradient(90deg, var(--teal), var(--violet), var(--pink)); -webkit-background-clip: text; background-clip: text; color: transparent; }
-  .final .btn { margin-top: 44px; font-size: 18px; padding: 20px 34px; }
-  .final .alt { display: block; margin-top: 16px; font-size: 13px; color: var(--muted); }
-  .final .alt a { text-decoration: underline; text-underline-offset: 3px; }
-
-  footer { padding: 30px var(--pad) calc(30px + env(safe-area-inset-bottom, 0px)); display: flex; justify-content: space-between; gap: 20px; color: var(--muted); font-size: 13px; border-top: 1px solid rgba(255,255,255,.08); }
-
-  .marquee { overflow: hidden; border-block: 1px solid rgba(255,255,255,.1); padding: 18px 0; position: relative; z-index: 2; background: rgba(0,0,0,.15); }
-  .marquee div { display: flex; gap: 48px; width: max-content; animation: slide 30s linear infinite; font-weight: 800; font-size: 22px; letter-spacing: -.02em; white-space: nowrap; }
-  .marquee span:nth-child(3n+1) { color: var(--pink) } .marquee span:nth-child(3n+2) { color: var(--teal) } .marquee span:nth-child(3n) { color: var(--yellow) }
-  @keyframes slide { to { transform: translateX(-50%); } }
-
-  .toast {
-    position: fixed; left: 50%; bottom: calc(24px + env(safe-area-inset-bottom, 0px)); z-index: 70;
-    transform: translate(-50%, 140%); transition: transform .45s cubic-bezier(.2,.8,.2,1);
-    background: #2a2a31; border: 1px solid rgba(255,255,255,.14); border-radius: 14px;
-    padding: 14px 18px; font-size: 14px; display: flex; gap: 12px; align-items: center; max-width: calc(100vw - 32px);
-    box-shadow: 0 20px 50px -10px rgba(0,0,0,.6);
-  }
-  .toast.show { transform: translate(-50%, 0); }
-  .toast i { width: 10px; height: 10px; border-radius: 50%; background: var(--teal); flex: none; box-shadow: 0 0 12px var(--teal); }
-
-  /* ---------- Responsivo ---------- */
-  @media (max-width: 1000px) {
-    nav .links { display: none; }
-    .stage { position: relative; right: auto; top: auto; width: min(360px, 100%); margin: 40px auto 0; }
-    .mock { transform: none; }
-    .hero-cta { margin-left: 0; }
-    .features, .steps { grid-template-columns: 1fr; }
-    .feature + .feature { padding-left: 0; border-left: 0; border-top: 1px solid rgba(255,255,255,.12); }
-    .b1 { left: -20px; }
-    .b2 { right: -10px; }
-  }
-  @media (max-width: 560px) {
-    header .btn { display: none; }
-    .h-solid { font-size: 13.5vw; }
-    .h-serif { font-size: 17vw; }
-    .h-outline { font-size: 13vw; }
-    .facts { gap: 24px 36px; }
-    footer { flex-direction: column; }
-  }
-  @media (prefers-reduced-motion: reduce) {
-    *, *::before, *::after { animation-duration: .001ms !important; animation-iteration-count: 1 !important; transition: none !important; }
-    .reveal { opacity: 1; transform: none; }
-    html { scroll-behavior: auto; }
+  @media (max-width: 800px) {
+    .hero { grid-template-columns: 1fr; gap: 40px; padding: 48px 0 56px; }
+    h1 { font-size: 34px; }
+    .list { grid-template-columns: 1fr; gap: 22px; }
+    header nav { display: none; }
   }
 </style>
 </head>
 <body>
 
-<div class="lights" aria-hidden="true">
-  <div class="light l1"></div><div class="light l2"></div><div class="light l3"></div><div class="light l4"></div><div class="light l5"></div>
-</div>
-<div class="grid" aria-hidden="true"></div>
-<div class="grain" aria-hidden="true"></div>
-<div class="cursor" aria-hidden="true"></div>
-
 <header>
-  <a class="logo" href="#">ytmini<span class="spark">✦</span></a>
-  <nav>
-    <div class="links">
+  <div class="wrap">
+    <a class="logo" href="#"><i></i>Henkkes Player</a>
+    <nav>
       <a href="#o-que-faz">O que faz</a>
-      <a href="#instalar">Como instalar</a>
+      <a href="#instalar">Instalar</a>
       <a href="#faq">Dúvidas</a>
-    </div>
-    <a class="btn sm js-download" href="/downloads/instalar-yt-mini-player.cmd" download>Baixar grátis</a>
-  </nav>
+      <a href="https://github.com/henquesz/henkkes-player-vscode-extension">GitHub</a>
+    </nav>
+  </div>
 </header>
 
-<main>
-  <section class="hero" style="padding-top:40px">
-    <div class="pills reveal d1">
-      <span class="pill live"><i></i>Tocando agora, no editor</span>
-      <span class="pill">Extensão pro VS Code</span>
-      <span class="pill">Instala em 1 clique</span>
-      <span class="pill">Grátis</span>
-    </div>
-
-    <h1>
-      <span class="h-solid reveal d2">PROGRAMA</span>
-      <span class="h-serif reveal d3">no ritmo.</span>
-      <span class="h-outline reveal d4">SEM ALT+TAB.</span>
-    </h1>
-
-    <div class="stage reveal d5" aria-label="Prévia da extensão dentro do VS Code">
-      <div class="bubble b1">🎧</div>
-      <div class="bubble b2">▶</div>
-      <div class="bubble b3">♪</div>
-      <div class="mock" id="mock">
-        <div class="mock-bar"><i></i><i></i><i></i></div>
-        <div class="mock-body">
-          <div class="tree">
-            <div>› apps</div>
-            <div style="--i:1">› web</div>
-            <div style="--i:2" class="on">page.tsx</div>
-            <div style="--i:2">layout.tsx</div>
-          </div>
-          <div class="section-head">⌄ TOCANDO AGORA</div>
-          <div class="art">
-            <div class="sun"></div><div class="hills"></div>
-            <div class="eq"><i></i><i></i><i></i><i></i></div>
-          </div>
-          <div class="track">lofi pra codar até tarde (3 horas)</div>
-          <div class="artist">Estúdio Nebulosa</div>
-          <div class="bar"><i></i></div>
-          <div class="times"><span>1:12:04</span><span>3:00:00</span></div>
-          <div class="ctrls">
-            <span><svg viewBox="0 0 24 24"><path d="M6 6h2v12H6zm3.5 6 8.5 6V6z"/></svg></span>
-            <span class="play"><svg viewBox="0 0 24 24"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg></span>
-            <span><svg viewBox="0 0 24 24"><path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z"/></svg></span>
-          </div>
-        </div>
-        <div class="status"><svg viewBox="0 0 24 24"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>lofi pra codar até tarde…</div>
-      </div>
-    </div>
-
-    <div class="facts reveal d5">
-      <div class="fact"><small>FUNCIONA COM</small><b>Chrome<em>/</em>Edge<em>/</em>Firefox</b></div>
-      <div class="fact"><small>PRECISA DE</small><b>Windows 10+ <em>&amp;</em> VS Code</b></div>
-      <div class="fact"><small>CUSTA</small><b>Nada</b></div>
-      <div class="hero-cta">
-        <a class="btn js-download" href="/downloads/instalar-yt-mini-player.cmd" download>
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v11m0 0-4.5-4.5M12 15l4.5-4.5M5 20h14"/></svg>
-          Baixar instalador
-        </a>
-        <span class="note js-os">Para Windows · 14 KB</span>
-      </div>
-    </div>
-  </section>
-
-  <div class="marquee" aria-hidden="true">
+<main class="wrap">
+  <div class="hero">
     <div>
-      <span>play</span><span>pause</span><span>próximo</span><span>capa do vídeo</span><span>barra de progresso</span><span>status bar</span><span>sem extensão no navegador</span><span>foco total</span>
-      <span>play</span><span>pause</span><span>próximo</span><span>capa do vídeo</span><span>barra de progresso</span><span>status bar</span><span>sem extensão no navegador</span><span>foco total</span>
+      <h1>O que tá tocando no YouTube, direto no VS Code.</h1>
+      <p>Uma extensão pequena que mostra o vídeo atual no Explorer e deixa você pausar ou pular sem sair do editor.</p>
+      <div class="cta">
+        <a class="btn" href="/downloads/instalar-henkkes-player.cmd" download>Baixar instalador</a>
+        <small class="js-os">Windows 10+ · 14 KB · ou <a href="/downloads/henkkes-player.vsix" download>.vsix</a></small>
+      </div>
+    </div>
+
+    <div class="mock" aria-label="Prévia da extensão no VS Code">
+      <div class="mock-title">EXPLORER</div>
+      <div class="mock-body">
+        <div class="tree">
+          <div>› src</div>
+          <div style="--i:1">› components</div>
+          <div style="--i:2" class="on">Player.tsx</div>
+          <div style="--i:2">index.ts</div>
+        </div>
+        <div class="sec">⌄ TOCANDO AGORA</div>
+        <div class="thumb"></div>
+        <div class="track">lofi pra codar até tarde (3 horas)</div>
+        <div class="artist">Estúdio Nebulosa</div>
+        <div class="bar"><i></i></div>
+        <div class="times"><span>1:12:04</span><span>3:00:00</span></div>
+        <div class="ctrls">
+          <svg viewBox="0 0 24 24"><path d="M6 6h2v12H6zm3.5 6 8.5 6V6z"/></svg>
+          <svg viewBox="0 0 24 24"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>
+          <svg viewBox="0 0 24 24"><path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z"/></svg>
+        </div>
+      </div>
+      <div class="statusbar">⏸ lofi pra codar até tarde…</div>
     </div>
   </div>
 
   <section id="o-que-faz">
-    <span class="whisper" style="right:10%;top:60px">lo-fi</span>
-    <h2 class="sec-title">O player fica <em>onde você já está.</em></h2>
-    <p class="sec-lead">Deu play num vídeo no navegador? Ele aparece no Explorer do VS Code com capa, título e progresso. Pausar ou pular não exige mais trocar de janela.</p>
-
-    <div class="features">
-      <div class="feature">
-        <div class="ic" style="background:rgba(255,61,154,.15);color:var(--pink)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="5" width="18" height="14" rx="3"/><path d="m10 9 5 3-5 3z" fill="currentColor"/></svg></div>
-        <h3>Capa, título e tempo</h3>
-        <p>Um painel no Explorer mostra a thumbnail do vídeo, o canal e quanto falta, atualizado a cada meio segundo.</p>
+    <h2>O que faz</h2>
+    <div class="list">
+      <div>
+        <h3>Painel no Explorer</h3>
+        <p>Capa, título, canal e progresso do vídeo que está tocando no navegador.</p>
       </div>
-      <div class="feature">
-        <div class="ic" style="background:rgba(46,230,214,.14);color:var(--teal)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 17h16M7 13l3-3 3 3 4-4"/></svg></div>
-        <h3>Controle na status bar</h3>
-        <p>O título fica no rodapé do editor. Um clique pausa. Também dá pra ligar play, próximo e anterior a atalhos de teclado.</p>
+      <div>
+        <h3>Controle pela status bar</h3>
+        <p>Clique no título no rodapé pra pausar. Play, próximo e anterior também podem virar atalhos de teclado.</p>
       </div>
-      <div class="feature">
-        <div class="ic" style="background:rgba(255,210,63,.14);color:var(--yellow)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="8"/><path d="M8 12h8"/></svg></div>
-        <h3>Nada pra instalar no navegador</h3>
-        <p>A extensão lê os controles de mídia do próprio Windows, os mesmos das teclas de mídia do teclado. Seu navegador continua intocado.</p>
+      <div>
+        <h3>Nada no navegador</h3>
+        <p>Lê os controles de mídia do Windows, os mesmos das teclas de mídia. Não precisa instalar extensão no Chrome.</p>
       </div>
     </div>
   </section>
 
   <section id="instalar">
-    <span class="whisper" style="left:55%;top:90px">play</span>
-    <h2 class="sec-title">Instala em <em>três passos.</em></h2>
-    <div class="steps">
-      <div class="step" style="--c:var(--pink)">
-        <h3>Baixe o instalador</h3>
-        <p>Um arquivo pequeno, <code>instalar-yt-mini-player.cmd</code>, com a extensão dentro.</p>
-      </div>
-      <div class="step" style="--c:var(--yellow)">
-        <h3>Dê dois cliques</h3>
-        <p>Ele encontra o seu VS Code e instala sozinho. Se o Windows perguntar, clique em "Mais informações" e depois em "Executar assim mesmo".</p>
-      </div>
-      <div class="step" style="--c:var(--teal)">
-        <h3>Recarregue o editor</h3>
-        <p>Rode <code>Reload Window</code> e abra o Explorer. A seção "Tocando agora" aparece lá embaixo.</p>
-      </div>
-    </div>
+    <h2>Instalar</h2>
+    <ol class="steps">
+      <li>Baixe o <code>instalar-henkkes-player.cmd</code>.</li>
+      <li>Dê dois cliques. Ele acha o VS Code e instala a extensão.<br>
+        <span>Se o Windows reclamar, clique em "Mais informações" e depois em "Executar assim mesmo".</span></li>
+      <li>No VS Code, rode <code>Reload Window</code> e abra o Explorer. A seção "Tocando agora" fica lá embaixo.</li>
+    </ol>
   </section>
 
   <section id="faq">
-    <h2 class="sec-title">Dúvidas <em>rápidas.</em></h2>
-    <div class="faq">
-      <details>
-        <summary>Por que o Windows mostra um aviso ao abrir o instalador?</summary>
-        <p>O SmartScreen avisa sobre qualquer script baixado que não tenha assinatura digital paga. O instalador é um arquivo de texto: dá pra abrir no Bloco de Notas e ler tudo o que ele faz antes de rodar.</p>
-      </details>
-      <details>
-        <summary>Funciona no Mac ou no Linux?</summary>
-        <p>Ainda não. A extensão depende dos controles de mídia do Windows. Uma versão multiplataforma está nos planos.</p>
-      </details>
-      <details>
-        <summary>Funciona com YouTube Music, Spotify ou outros apps?</summary>
-        <p>Qualquer mídia tocando no navegador aparece, incluindo YouTube Music. Apps de desktop como o Spotify são ignorados de propósito.</p>
-      </details>
-      <details>
-        <summary>Prefiro instalar manualmente. Como faço?</summary>
-        <p>Baixe o <a href="/downloads/yt-mini-player.vsix" download>arquivo .vsix</a>, abra o VS Code, vá em Extensões, clique nos três pontos e escolha "Install from VSIX…".</p>
-      </details>
-      <details>
-        <summary>Como desinstalar?</summary>
-        <p>Na aba Extensões do VS Code, procure "YT Mini Player" e clique em Desinstalar. Nada fica para trás.</p>
-      </details>
-    </div>
-  </section>
-
-  <section class="final">
-    <div class="big">Aperta o play.<span>O resto é código.</span></div>
-    <a class="btn js-download" href="/downloads/instalar-yt-mini-player.cmd" download>
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v11m0 0-4.5-4.5M12 15l4.5-4.5M5 20h14"/></svg>
-      Baixar instalador
-    </a>
-    <span class="alt">Ou baixe o <a href="/downloads/yt-mini-player.vsix" download>.vsix</a> e instale manualmente.</span>
+    <h2>Dúvidas</h2>
+    <details>
+      <summary>Por que o Windows mostra um aviso no instalador?</summary>
+      <p>O SmartScreen avisa sobre qualquer script baixado sem assinatura digital. O instalador é texto puro: dá pra abrir no Bloco de Notas e ver o que ele faz antes de rodar.</p>
+    </details>
+    <details>
+      <summary>Funciona no Mac ou no Linux?</summary>
+      <p>Ainda não. Depende dos controles de mídia do Windows.</p>
+    </details>
+    <details>
+      <summary>Funciona com YouTube Music ou Spotify?</summary>
+      <p>Qualquer mídia tocando no navegador aparece, inclusive YouTube Music. Apps de desktop como o Spotify ficam de fora.</p>
+    </details>
+    <details>
+      <summary>Quero instalar manualmente.</summary>
+      <p>Baixe o <a href="/downloads/henkkes-player.vsix" download>.vsix</a>, vá em Extensões no VS Code, clique nos três pontos e escolha "Install from VSIX…".</p>
+    </details>
+    <details>
+      <summary>Como desinstalar?</summary>
+      <p>Na aba Extensões, procure "Henkkes Player" e clique em Desinstalar.</p>
+    </details>
   </section>
 </main>
 
 <footer>
-  <span>ytmini ✦ feito pra quem programa com trilha sonora.</span>
-  <span>Não afiliado ao YouTube nem à Microsoft.</span>
+  <div class="wrap">
+    <span>Henkkes Player</span>
+    <span>Não afiliado ao YouTube nem à Microsoft.</span>
+  </div>
 </footer>
 
-<div class="toast" id="toast" role="status" aria-live="polite"><i></i><span>Baixando. Quando terminar, dê dois cliques no arquivo.</span></div>
-
 <script>
-  // Cursor com brilho
-  const cursor = document.querySelector('.cursor');
-  let cx = innerWidth / 2, cy = innerHeight / 2, tx = cx, ty = cy;
-  addEventListener('mousemove', (e) => { tx = e.clientX; ty = e.clientY; });
-  (function loop() {
-    cx += (tx - cx) * .2; cy += (ty - cy) * .2;
-    cursor.style.left = cx + 'px'; cursor.style.top = cy + 'px';
-    requestAnimationFrame(loop);
-  })();
-  document.querySelectorAll('a, button, summary').forEach((el) => {
-    el.addEventListener('mouseenter', () => cursor.classList.add('hover'));
-    el.addEventListener('mouseleave', () => cursor.classList.remove('hover'));
-  });
-
-  // Mock inclina seguindo o mouse
-  const mock = document.getElementById('mock');
-  const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
-  if (!reduce && matchMedia('(min-width: 1001px)').matches) {
-    addEventListener('mousemove', (e) => {
-      const x = e.clientX / innerWidth - .5, y = e.clientY / innerHeight - .5;
-      mock.style.transform = `rotateY(${-10 + x * 14}deg) rotateX(${4 - y * 10}deg)`;
-    });
-  }
-
-  // Aviso fora do Windows
   if (!/Windows/i.test(navigator.userAgent)) {
-    document.querySelectorAll('.js-os').forEach((n) => n.textContent = 'Por enquanto só para Windows. Abra este site no seu PC.');
+    document.querySelector('.js-os').textContent = 'Por enquanto só funciona no Windows.';
   }
-
-  // Toast ao baixar
-  const toast = document.getElementById('toast');
-  let t;
-  document.querySelectorAll('.js-download').forEach((a) => a.addEventListener('click', () => {
-    toast.classList.add('show');
-    clearTimeout(t);
-    t = setTimeout(() => toast.classList.remove('show'), 5000);
-  }));
 </script>
 </body>
 </html>
