@@ -15,10 +15,11 @@ if errorlevel 1 goto :fail_extract
 
 echo   [2/3] Procurando o VS Code...
 set "CODE="
-where code >nul 2>nul && set "CODE=code"
-if not defined CODE if exist "%LOCALAPPDATA%\Programs\Microsoft VS Code\bin\code.cmd" set "CODE=%LOCALAPPDATA%\Programs\Microsoft VS Code\bin\code.cmd"
+if exist "%LOCALAPPDATA%\Programs\Microsoft VS Code\bin\code.cmd" set "CODE=%LOCALAPPDATA%\Programs\Microsoft VS Code\bin\code.cmd"
 if not defined CODE if exist "%ProgramFiles%\Microsoft VS Code\bin\code.cmd" set "CODE=%ProgramFiles%\Microsoft VS Code\bin\code.cmd"
 if not defined CODE if exist "%ProgramFiles(x86)%\Microsoft VS Code\bin\code.cmd" set "CODE=%ProgramFiles(x86)%\Microsoft VS Code\bin\code.cmd"
+rem Usa o caminho completo: chamar so "code" faz o %~dp0 do code.cmd apontar pra pasta errada.
+if not defined CODE for /f "delims=" %%i in ('where code.cmd 2^>nul') do if not defined CODE set "CODE=%%i"
 if not defined CODE goto :fail_code
 
 echo   [3/3] Instalando...
