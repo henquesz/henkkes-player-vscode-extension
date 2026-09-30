@@ -1,0 +1,26 @@
+{
+  "name": "henkkes-player",
+  "displayName": "Henkkes Player",
+  "description": "Mini player do que está tocando no YouTube (via controles de mídia do Windows).",
+  "version": "0.0.4",
+  "publisher": "local",
+  "engines": { "vscode": "^1.85.0" },
+  "categories": ["Other"],
+  "main": "./extension.js",
+  "activationEvents": ["onStartupFinished"],
+  "contributes": {
+    "views": {
+      "claude-sidebar-secondary": [
+        { "type": "webview", "id": "henkkesPlayer.chatView", "name": "Tocando agora", "when": "!claude-code:doesNotSupportSecondarySidebar" }
+      ],
+      "explorer": [
+        { "type": "webview", "id": "henkkesPlayer.view", "name": "Tocando agora", "visibility": "collapsed" }
+      ]
+    },
+    "commands": [
+      { "command": "henkkesPlayer.toggle", "title": "Henkkes Player: Play/Pause" },
+      { "command": "henkkesPlayer.next", "title": "Henkkes Player: Próximo" },
+      { "command": "henkkesPlayer.prev", "title": "Henkkes Player: Anterior" }
+    ]
+  }
+}
